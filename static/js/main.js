@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Renderizador
 const w = window.innerWidth;
@@ -14,28 +15,28 @@ const near = 0.1;
 const far = 1000;
 const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
 camera.position.z = 200;
-
+const controls = new OrbitControls(camera, renderer.domElement);
 // Cena
 const scene = new THREE.Scene();
 
 // Terreno (dimensões em metros)
-const terrenoLargura = 100;  // 100 metros de largura
-const terrenoAltura = 100; // 100 metros de altura
+const terrenoLargura = 10;  // 100 metros de largura
+const terrenoAltura = 8; // 100 metros de altura
 const terrenoForma = new THREE.PlaneGeometry(terrenoLargura, terrenoAltura);
 const terrenoMaterial = new THREE.MeshBasicMaterial({ color: 0x808080, side: THREE.DoubleSide });
 const terreno = new THREE.Mesh(terrenoForma, terrenoMaterial);
 scene.add(terreno);
 
 // Recuos (também em metros)
-const recuoFrontal = 5; // recuo frontal de 5 metros
-const recuoLateral = 2; // recuo lateral de 2 metros
+const recuoFrontal = 3; // recuo frontal de 5 metros
+const recuoLateral = 1; // recuo lateral de 2 metros
 
 // Espaço disponível para a edificação após aplicar os recuos
 const larguraDisponivel = terrenoLargura - 2 * recuoLateral;
 const alturaDisponivel = terrenoAltura - recuoFrontal;
 
 // Taxa de ocupação
-let taxaOcupacao = 0.6; // Exemplo: 60% de taxa de ocupação
+let taxaOcupacao = 0.80; // Exemplo: 60% de taxa de ocupação
 
 // Área disponível para edificação
 const areaDisponivel = larguraDisponivel * alturaDisponivel;
@@ -48,16 +49,40 @@ const scaleFactor = Math.sqrt(taxaOcupacao); // Fator de escala para ajustar as 
 const edificacaoLargura = larguraDisponivel * scaleFactor;
 const edificacaoAltura = alturaDisponivel * scaleFactor;
 
+let taxaCA = 2;
+const alturaPavimento = 3;
+let areaCA = terrenoAltura * terrenoLargura * taxaCA;
+console.log(areaCA);
+const numeroPavimentos = Math.floor(areaCA/areaEdificacao);
+
 // Criando a edificação
-const edificacaoForma = new THREE.PlaneGeometry(edificacaoLargura, edificacaoAltura);
+const edificacaoForma = new THREE.BoxGeometry(edificacaoLargura,edificacaoAltura, numeroPavimentos*alturaPavimento);
 const edificacaoMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
 const edificacao = new THREE.Mesh(edificacaoForma, edificacaoMaterial);
 
+
 // Posicionando a edificação dentro do terreno
 edificacao.position.x = 0; // centralizado horizontalmente
-edificacao.position.y = -((terrenoAltura - edificacaoAltura) / 2) + (recuoFrontal / 2); // ajustando para considerar o recuo frontal
+edificacao.position.y = -((terrenoAltura - edificacaoAltura) / 2) + (recuoFrontal / 2);
+edificacao.position.z = (numeroPavimentos*alturaPavimento)/ 2; // ajustando para considerar o recuo frontal
 
 scene.add(edificacao);
+
+function criarLinhaSeparadora(zPos) {
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-larguraDisponivel / 2, -alturaDisponivel / 2, zPos),
+        new THREE.Vector3(larguraDisponivel / 2, -alturaDisponivel / 2, zPos)
+    ]);
+    const material = new THREE.LineBasicMaterial({ color: 0x808080, linewidth: 2 }); // Cor cinza e espessura
+    return new THREE.Line(geometry, material);
+}
+
+// Adicionar as linhas entre os pavimentos
+for (let i = 1; i < numeroPavimentos; i++) {
+    const zPos = i * alturaPavimento; // A cada 3 metros
+    const linha = criarLinhaSeparadora(zPos);
+    scene.add(linha);
+}
 
 // Taxa de permeabilidade (25% do terreno)
 const taxaPermeabilidade = 0.15;
@@ -99,6 +124,8 @@ for (let i = 0; i < divisao; i++) {
     const permeavel = criarAreaPermeavel(x, y, larguraDivisao, alturaDivisao);
     scene.add(permeavel);
 }
+
+
 
 // Calculando e logando as áreas
 const areaTerreno = terrenoAltura * terrenoLargura;
